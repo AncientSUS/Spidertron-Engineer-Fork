@@ -1,0 +1,9 @@
+{
+    "name": "SpidertronEngineer",
+    "version": "1.0.1",
+    "title": "Spidertron Engineer Fork",
+    "author": "Xorimuth, Elzyrath",
+    "description": "Build your factory as a Spidertron from the start! Instead of unlocking better weapons and armor, unlock upgrades to yourself.",
+    "factorio_version": "2.0",
+    "dependencies": ["base >= 2.0", "SpidertronEnhancements >= 1.10.8"]
+  }

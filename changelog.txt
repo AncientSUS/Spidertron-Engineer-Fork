@@ -1,0 +1,267 @@
+---------------------------------------------------------------------------------------------------
+Version: 2.0.1
+Date: 26 May 2024
+  Changes:
+    - The mod has been forked to work in 2.0 Factorio, please let me know about any possible errors in the discussions.
+    - Updated mod info to reflect that this is a fork of the original mod, and added Elzyrath as a co-author.
+---------------------------------------------------------------------------------------------------
+Version: 1.8.11
+Date: 25 November 2022
+  Bugfixes:
+    - Fixed crash on load with Bob's Character classes
+    - Removed duplicate info icons in mod settings
+---------------------------------------------------------------------------------------------------
+Version: 1.8.10
+Date: 21 January 2022
+  Locale:
+    - Added some Spanish, and Brazilian Portuguese translations
+---------------------------------------------------------------------------------------------------
+Version: 1.8.9
+Date: 1 April 2021
+  Changes:
+    - Improved reliability of getting into other vehicles from Spidertron Engineer
+  Bugfixes:
+    - Fixed inventory size conflicts with other mods. If you've been affected by this, reset it manually with `/c game.player.force.character_inventory_slots_bonus = 0` (replace 0 with whatever it should be for your save)
+    - Fixed Spidertron Engineer inventory being forcibly closed upon upgrade
+---------------------------------------------------------------------------------------------------
+Version: 1.8.8
+Date: 1 February 2021
+  Compatibility:
+    - Fixed crash when loading Schall Perpetual Machine whilst in editor mode
+---------------------------------------------------------------------------------------------------
+Version: 1.8.7
+Date: 19 January 2021
+  Features:
+    - Spidertron Engineer name is now kept when it is upgraded or when it enters/exits vehicles
+  Bugfixes:
+    - Fixed crash when using mods that register non-entities for destruction
+---------------------------------------------------------------------------------------------------
+Version: 1.8.6
+Date: 13 January 2021
+  Bugfixes:
+    - Fixed crash when loading certain mods
+---------------------------------------------------------------------------------------------------
+Version: 1.8.5
+Date: 13 January 2021
+  Bugfixes:
+    - Fixed 'Compatibility mode' deleting items when it wasn't supposed to
+---------------------------------------------------------------------------------------------------
+Version: 1.8.4
+Date: 11 January 2021
+  Features:
+    - Spidertron Engineer body rotation is now kept when it is upgraded
+  Bugfixes:
+    - Fixed crash with Spidertron Enhancements >= 1.2.3
+---------------------------------------------------------------------------------------------------
+Version: 1.8.3
+Date: 7 January 2021
+  Bugfixes:
+    - Fixed crash when spidertron remote is moved whilst the spidertron it was connected to is in a vehicle
+---------------------------------------------------------------------------------------------------
+Version: 1.8.2
+Date: 5 January 2021
+  Changes:
+    - Added dependency on Spidertron Enhancements to add more QoL features and reduce duplication of code
+    - Player icon is now a fish
+---------------------------------------------------------------------------------------------------
+Version: 1.8.1
+Date: 23 December 2020
+  Bugfixes:
+    -  Fixed selected weapon slot being reset to slot 1 when it is upgraded, changes surface, gets into a vehicle, or leaves and rejoins a multiplayer game
+---------------------------------------------------------------------------------------------------
+Version: 1.8.0
+Date: 23 December 2020
+  Features:
+    - Spidertron Engineers can now automatically heal themselves over time
+    - Added shortcut (or keybind) to emit a repair pack into your surroundings, allowing you to repair buildings as a Spidertron Engineer
+    - Proper support for 1.1 features so that logistics requests, trash slots and autopilot destinations are not deleted when the Spidertron Engineer is upgraded, changes surface, gets into a vehicle, or leaves and rejoins a multiplayer game
+    - Added 'Shift + E' to open and close Spidertron Engineer GUI directly
+    - New 'compatibility mode' that does not remove all weapons and armor from the game 
+    - `/create-spidertron` command now defaults to the player that ran the command if no playername is provided
+  Bugfixes:
+    - Fixed spidertron disappearing when other mods change surface
+    - Fixed crash when a player joins a game whilst in a vehicle and 'Spawn with a spidertron remote' is enabled
+---------------------------------------------------------------------------------------------------
+Version: 1.7.0
+Date: 24 November 2020
+  Features:
+    - Updated to Factorio 1.1 (improved support for new features coming later - currently logistics requests may be deleted without warning)
+    - Partial French and German translations (contribute here: https://crowdin.com/project/factorio-mods-localization)
+---------------------------------------------------------------------------------------------------
+Version: 1.6.12
+Date: 2 November 2020
+  Features:
+    - Spidertron Engineers now support equipment from Krastorio2 and Armor Plating
+---------------------------------------------------------------------------------------------------
+Version: 1.6.11
+Date: 4 October 2020
+  Bugfixes:
+    - Fixed crash when player dies
+---------------------------------------------------------------------------------------------------
+Version: 1.6.10
+Date: 2 October 2020
+  Changes:
+    - Health value is now kept when the Spidertron Engineer is upgraded, changes surface, or leaves and rejoins a multiplayer game
+  Bugfixes:
+    - Fixed players being able to enter other players' Spidertron Engineers in multiplayer
+    - Fixed spidertron color resetting to default after upgrade
+    - Fixed some crashes related to mulitplayer upgrades and spawns
+---------------------------------------------------------------------------------------------------
+Version: 1.6.9
+Date: 1 October 2020
+  Changes:
+    - Spidertron color now always reflects player color
+  Bugfixes:
+    - Fixed spidertrons being created at a previously unlocked higher level if a technology becomes unresearched
+    - Fixed non-default force names not being able to upgrade spidertrons
+    - Fixed crash when changing surface with some mods
+    - Upgrade logic is now more robust
+---------------------------------------------------------------------------------------------------
+Version: 1.6.8
+Date: 30 September 2020
+  Bugfixes:
+    - Fixed crash when joining a multiplayer game if another player was still standing in spawn
+---------------------------------------------------------------------------------------------------
+Version: 1.6.7
+Date: 28 September 2020
+  Bugfixes:
+    - Fixed crash when leaving a multiplayer game
+---------------------------------------------------------------------------------------------------
+Version: 1.6.6
+Date: 25 September 2020
+  Bugfixes:
+    - Spidertron Engineers no longer show up in filter selections and logistic requests
+    - Fixed spidertron not being created on respawn when playing with Space Exploration (requires SE v0.4.10)
+---------------------------------------------------------------------------------------------------
+Version: 1.6.5
+Date: 25 September 2020
+  Changes:
+    - Inventory size bonus is now applied per-force instead of per-player
+---------------------------------------------------------------------------------------------------
+Version: 1.6.4
+Date: 22 September 2020
+  Features:
+    - Added /create-spidertron command to be used when a mod incompatibility leaves a player without a spidertron (such as respawning in Space Exploration)
+    - Space Exploration medpacks now heal the Spidertron Engineer
+  Bugfixes:
+    - Fixed player being killed when entering vehicle or factory
+---------------------------------------------------------------------------------------------------
+Version: 1.6.3
+Date: 22 September 2020
+  Changes:
+    - Disabled auto-switching of weapon slots
+    - Trunk, ammo and equipment grid are now kept perfectly when the Spidertron Engineer is upgraded, changes surface, or exits an entity
+    - In particular, burner equipment grid items no longer lose their fuel, filtered slots are not lost and items such as spidertron remotes and modular armor do not lose their associated data
+  Bugfixes:
+    - Fixed crash when placing water tiles on Spidertron Engineer with Waterfill mod
+---------------------------------------------------------------------------------------------------
+Version: 1.6.2
+Date: 8 September 2020
+  Features:
+    - Added Nanobots support (it gives the spidertron a nanobot emitter from MK2 onwards, but I don't think that it actually works)
+  Bugfixes:
+    - Improved travelling between surfaces - fixes crash in beltlayer pipelayer
+---------------------------------------------------------------------------------------------------
+Version: 1.6.1
+Date: 4 September 2020
+  Features:
+    - Added setting to optionally allow entering any vehicle instead of just trains
+  Changes:
+    - VehicleGrid no longer adds a grid to MK1&2 Spidertron Engineers
+    - Equipment modules from "Bob's Vehicle Equipment" can now be used in a Spidertron Engineer
+  Bugfixes:
+    - Fixed crash on load with Space Exploration (no balancing attempted yet)
+    - Fixed occasional crash when adding the mod to an existing save [not complete]
+    - Fixed crash when upgrading to a Spidertron Engineer with a smaller equipment grid (because of mods)
+---------------------------------------------------------------------------------------------------
+Version: 1.6.0
+Date: 31 August 2020
+  Features:
+    - Optionally increase Spidertron Engineer size upon upgrade, or set size to an arbitrary constant
+  Changes:
+    - Mod licence is now GPLv3. If you need a more permissive version, please use 1.5.0 or below
+  Bugfixes:
+    - Fixed crash in modifying technologies on game load
+---------------------------------------------------------------------------------------------------
+Version: 1.5.0
+Date: 25 August 2020
+  Features:
+    - Optional overhaul of rocket launches/space science: swap satellites for spidertrons and add a couple of easier ways to reclaim fish from the launch
+  Changes:
+    - "Spawn with remote" setting changed from startup to runtime
+    - Autopilot destination (from a remote) is now kept when the Spidertron Engineer is upgraded
+    - Spidertron Engineer is no longer minable
+  Bugfixes:
+    - Fixed that turning on "spawn with remote" would overwrite an existing remote
+---------------------------------------------------------------------------------------------------
+Version: 1.4.1
+Date: 25 August 2020
+  Changes:
+    - Removed inventory from Spidertron Engineer MK2
+    - Auto-target settings are now kept when the Spidertron Engineer is upgraded, changes surface, or exits an entity
+  Bugfixes:
+    - Fixed crash upon death when "spawn with remote" is turned on
+    - Fixed crash when converting a save that has assembly machines that are crafting weapons or armor
+---------------------------------------------------------------------------------------------------
+Version: 1.4.0
+Date: 21 August 2020
+  Features:
+    - Added optional setting to spawn each player with a spidertron remote configured to control their own Spidertron Engineer
+    - Equipment grid items now keep their charge when the Spidertron Engineer is upgraded, changes surface, or exits an entity
+---------------------------------------------------------------------------------------------------
+Version: 1.3.1
+Date: 19 August 2020
+  Bugfixes:
+    - Fixed crash on loading save when "Allow character to exit spidertron" was set to "Never"
+---------------------------------------------------------------------------------------------------
+Version: 1.3.0
+Date: 19 August 2020
+  Features:
+    - Added runtime setting to allow temporary or unlimited exiting of spidertron. This allows Factorissimo2, The Fat Controller and others to be used.
+    - Added ability to enter trains and carriages directly from the spidertron. Create a post if you need modded entities added to this whitelist.
+    - Upon death, all items in the spidertron are spilled onto the ground instead of deleted.
+  Bugfixes:
+    - Fixed `attempt to index field 'player_last_driving_change_tick'(a nil value)`
+---------------------------------------------------------------------------------------------------
+Version: 1.2.1
+Date: 18 August 2020
+  Changes:
+    - Item and recipe removal is more dynamic so will correctly remove all guns and armor from any mod
+  Bugfixes:
+    - No longer removes items and recipes for guns and armor that are used in a different recipe (in vanilla this only means that rocket launchers can now be crafted because they are used to craft spidertrons)
+    - All forces are given +3 reach distance, not just "player"
+    - Fixed crash when loading Bob's logistics (and other mods)
+---------------------------------------------------------------------------------------------------
+Version: 1.2.0
+Date: 18 August 2020
+  Features:
+    - Improved mod compatibility to prevent crashes upon load
+  Bugfixes:
+    - Spidertron Engineer items no longer occasionally appear in the player's inventory
+    - Handling of different player states is now more robust so there should now be less crashes and inconsistencies, particularly when loading previous saves
+---------------------------------------------------------------------------------------------------
+Version: 1.1.0
+Date: 17 August 2020
+  Features:
+    - Actual multiplayer support, including players of different forces/factions
+  Bugfixes:
+    - Fixed various crashes related to opening up existing saves 
+---------------------------------------------------------------------------------------------------
+Version: 1.0.2
+Date: 16 August 2020
+  Minor Features:
+    - MK5 and MK6 Spidertrons now have automatic weapon cycling
+  Bugfixes:
+    - Fixed MK5 and MK6 Spidertrons having incorrect storage size 
+---------------------------------------------------------------------------------------------------
+Version: 1.0.1
+Date: 16 August 2020
+  Bugfixes:
+    - Fixed items in Spidertron trunk getting deleted during Spidertron upgrade
+    - Crash when GUI is closed by a player before they have been assigned a Spidertron
+---------------------------------------------------------------------------------------------------
+Version: 1.0.0
+Date: 16 August 2020
+  Features:
+    - Spawn as Spidertron from start
+    - Reworked technology researches to upgrade Spidertron Engineer
