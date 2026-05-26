@@ -13,12 +13,6 @@ data:extend({
         default_value = "limited",
         allowed_values = {"none", "limited", "all"}
     },
-    {
-        type = "bool-setting",
-        name = "spidertron-engineer-spawn-with-remote",
-        setting_type = "runtime-per-user",
-        default_value = false,
-    },
 })
 
 data:extend({
