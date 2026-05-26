@@ -1,3 +1,62 @@
+---@class SerialisedBurner
+---@field inventory LuaInventory,
+---@field burnt_result_inventory LuaInventory,
+---@field heat number
+---@field currently_burning ItemWithQualityID?
+---@field remaining_burning_fuel number
+
+---@class SerialisedEquipment
+---@field name string
+---@field quality string
+---@field position EquipmentPosition
+---@field energy number
+---@field shield number
+---@field to_be_removed boolean
+---@field ghost_name string?
+---@field burner SerialisedBurner?
+
+---@class SerialisedLogisticSection
+---@field active boolean
+---@field multiplier number
+---@field group string?
+---@field filters ItemFilter[]?
+
+---@class SerialisedSpidertron
+---@field version number?
+---@field unit_number UnitNumber?
+---@field name string
+---@field leg_name string
+---@field quality string?
+---@field driver_is_gunner boolean?
+---@field driver (LuaEntity|LuaPlayer)?
+---@field walking_state LuaControl.walking_state?
+---@field passenger (LuaEntity|LuaPlayer)?
+---@field localised_name LocalisedString?
+---@field force LuaForce?
+---@field torso_orientation number?
+---@field last_user LuaPlayer?
+---@field color Color?
+---@field entity_label string?
+---@field enable_logistics_while_moving boolean?
+---@field vehicle_automatic_targeting_parameters VehicleAutomaticTargetingParameters?
+---@field autopilot_destinations MapPosition[]?
+---@field follow_target LuaEntity?
+---@field follow_offset Vector?
+---@field selected_gun_index number?
+---@field health number?
+---@field request_from_buffers boolean?
+---@field trunk { inventory: LuaInventory, filters: ItemFilter[]? }?
+---@field ammo { inventory: LuaInventory, filters: ItemFilter[]? }?
+---@field trash { inventory: LuaInventory, filters: ItemFilter[]? }?
+---@field burner SerialisedBurner?
+---@field equipment SerialisedEquipment[]?
+---@field logistics_enabled boolean?
+---@field logistics_trash_not_requested boolean?
+---@field logistic_sections SerialisedLogisticSection[]?
+---@field players_selecting_spidertron table<PlayerIndex, boolean>?
+---@field players_with_gui_open LuaPlayer[]?
+
+
 MAP_ENTITY_INVENTORY = {["cargo-wagon"] = defines.inventory.cargo_wagon,
                         ["container"] = defines.inventory.chest,
                         ["car"] = defines.inventory.car_trunk,
@@ -8,62 +67,10 @@ MAP_ENTITY_INVENTORY = {["cargo-wagon"] = defines.inventory.cargo_wagon,
 
 local spidertron_lib = {}
 
-local function safe_entity_get(entity, key)
-  if not entity then
-    return nil
-  end
-  local ok, value = pcall(function() return entity[key] end)
-  return ok and value or nil
-end
-
-local function safe_entity_set(entity, key, value)
-  if not entity then
-    return false
-  end
-  return pcall(function() entity[key] = value end)
-end
-
-local function safe_entity_call(entity, method_name, ...)
-  if not entity then
-    return nil
-  end
-  local ok, method = pcall(function() return entity[method_name] end)
-  if not ok or type(method) ~= "function" then
-    return nil
-  end
-  local args = {...}
-  local ok2, result = pcall(function() return method(entity, table.unpack(args)) end)
-  return ok2 and result or nil
-end
-
-local function safe_item_get(item, key)
-  if not item then
-    return nil
-  end
-  local ok, value = pcall(function() return item[key] end)
-  return ok and value or nil
-end
-
-local function get_remotes(inventory, spidertron, found_remotes, not_connected)
-  if spidertron and inventory then
-    for i = 1, #inventory do
-      local item = inventory[i]
-      if item.valid_for_read then  -- Check if it isn't an empty inventory slot
-        local connected_entity = safe_item_get(item, "connected_entity")
-        if connected_entity == spidertron then
-          table.insert(found_remotes, item)
-        end
-        if not_connected then
-          local prototype = safe_item_get(item, "prototype")
-          if prototype and prototype.type == "spidertron-remote" and not connected_entity then
-            return item
-          end
-        end
-      end
-    end
-  end
-end
-
+---@param old_inventory LuaInventory
+---@param inventory LuaInventory?
+---@param filter_table ItemFilter[]?
+---@return { inventory: LuaInventory, filters: ItemFilter[] }
 local function copy_inventory(old_inventory, inventory, filter_table)
   if not inventory then
     inventory = game.create_inventory(#old_inventory)
@@ -87,13 +94,15 @@ local function copy_inventory(old_inventory, inventory, filter_table)
     position = entity_owner.position
   end
 
+  local item_prototypes = prototypes.item
+  local quality_prototypes = prototypes.quality
   local newsize = #inventory
   for i = 1, #old_inventory do
     if i <= newsize then
       local transferred = inventory[i].set_stack(old_inventory[i])
       if (not transferred) and surface and position then
-        -- If  only part of the stack was transferred then the remainder will be spilled
-        surface.spill_item_stack(position, old_inventory[i], true, nil, false)
+        -- If only part of the stack was transferred then the remainder will be spilled
+        surface.spill_item_stack{position=position, stack=old_inventory[i], allow_belts=false}
       end
 
       -- Can't set filters in script inventories, so must store them separately
@@ -101,8 +110,16 @@ local function copy_inventory(old_inventory, inventory, filter_table)
       if store_filters then
         filter_table[i] = old_inventory.get_filter(i)
       end
-      if load_filters then
+      if load_filters and filter_table and filter_table[i] and filter_table[i].name and item_prototypes[filter_table[i].name] then
+        if filter_table[i].quality and not quality_prototypes[filter_table[i].quality] then
+          filter_table[i].quality = nil
+        end
         inventory.set_filter(i, filter_table[i])
+      end
+    else
+      -- If the inventory is smaller than the old inventory, spill the remainder
+      if surface and position then
+        surface.spill_item_stack{position=position, stack=old_inventory[i], allow_belts=false}
       end
     end
   end
@@ -110,17 +127,21 @@ local function copy_inventory(old_inventory, inventory, filter_table)
 end
 spidertron_lib.copy_inventory = copy_inventory
 
+---@param burner LuaBurner
+---@return SerialisedBurner
 local function serialise_burner(burner)
-  local serialised_data = {}
-  serialised_data.inventory = copy_inventory(burner.inventory).inventory
-  serialised_data.burnt_result_inventory = copy_inventory(burner.burnt_result_inventory).inventory
-  serialised_data.heat = burner.heat
-  serialised_data.currently_burning = burner.currently_burning
-  serialised_data.remaining_burning_fuel = burner.remaining_burning_fuel
-  serialised_data.serialised_burner = true  -- Allows distinguishing between 'serialised_data' and a LuaBurner (from older version)
+  local serialised_data = {
+    inventory = copy_inventory(burner.inventory).inventory,
+    burnt_result_inventory = copy_inventory(burner.burnt_result_inventory).inventory,
+    heat = burner.heat,
+    currently_burning = burner.currently_burning,
+    remaining_burning_fuel = burner.remaining_burning_fuel,
+  }
   return serialised_data
 end
 
+---@param burner LuaBurner
+---@param serialised_data SerialisedBurner
 local function deserialise_burner(burner, serialised_data)
   copy_inventory(serialised_data.inventory, burner.inventory)
   copy_inventory(serialised_data.burnt_result_inventory, burner.burnt_result_inventory)
@@ -130,9 +151,14 @@ local function deserialise_burner(burner, serialised_data)
 end
 
 
+---@param spidertron LuaEntity
+---@return SerialisedSpidertron
 function spidertron_lib.serialise_spidertron(spidertron)
-  local serialised_data = {unit_number = spidertron.unit_number}
+  local serialised_data = {}
+  serialised_data.version = 2  -- Allows the deserialiser to know exactly what format the data is in
+  serialised_data.unit_number = spidertron.unit_number
   serialised_data.name = spidertron.name
+  serialised_data.quality = spidertron.quality.name
 
   serialised_data.driver_is_gunner = spidertron.driver_is_gunner
 
@@ -147,28 +173,40 @@ function spidertron_lib.serialise_spidertron(spidertron)
     serialised_data.passenger = passenger
   end
 
+  serialised_data.leg_name = spidertron.get_spider_legs()[1].name
+  serialised_data.localised_name = spidertron.localised_name  -- Can be used for warnings if spidertron recreation is blocked
   serialised_data.force = spidertron.force
   serialised_data.torso_orientation = spidertron.torso_orientation
   serialised_data.last_user = spidertron.last_user
-  serialised_data.color = safe_entity_get(spidertron, "color")
-  serialised_data.entity_label = safe_entity_get(spidertron, "entity_label")
+  serialised_data.color = spidertron.color
+  serialised_data.entity_label = spidertron.entity_label
 
-  serialised_data.vehicle_logistic_requests_enabled = safe_entity_get(spidertron, "vehicle_logistic_requests_enabled")
-  serialised_data.enable_logistics_while_moving = safe_entity_get(spidertron, "enable_logistics_while_moving")
-  serialised_data.vehicle_automatic_targeting_parameters = safe_entity_get(spidertron, "vehicle_automatic_targeting_parameters")
+  serialised_data.enable_logistics_while_moving = spidertron.enable_logistics_while_moving
+  serialised_data.vehicle_automatic_targeting_parameters = spidertron.vehicle_automatic_targeting_parameters
 
-  serialised_data.autopilot_destinations = safe_entity_get(spidertron, "autopilot_destinations")
-  serialised_data.follow_target = safe_entity_get(spidertron, "follow_target")
-  serialised_data.follow_offset = safe_entity_get(spidertron, "follow_offset")
-  serialised_data.selected_gun_index = safe_entity_get(spidertron, "selected_gun_index")
+  serialised_data.autopilot_destinations = spidertron.autopilot_destinations
+  serialised_data.follow_target = spidertron.follow_target
+  serialised_data.follow_offset = spidertron.follow_offset
+  serialised_data.selected_gun_index = spidertron.selected_gun_index
 
-  serialised_data.health = safe_entity_get(spidertron, "get_health_ratio") and safe_entity_call(spidertron, "get_health_ratio") or nil
+  serialised_data.health = spidertron.get_health_ratio()
+
+  -- No 100% reliable way to check if the call is valid.
+  -- `request_slot_count` returns 0 for spidertrons with no logistics, but also with no requests
+  -- trash inventory size > 0 works, except it isn't updated on an already-placed spidrtron
+  local status, request_from_buffers = pcall(function() return spidertron.request_from_buffers end)
+  if status then
+    serialised_data.request_from_buffers = request_from_buffers
+  end
 
 
   -- Inventories
-  serialised_data.trunk = copy_inventory(spidertron.get_inventory(defines.inventory.spider_trunk))
-  serialised_data.ammo = copy_inventory(spidertron.get_inventory(defines.inventory.spider_ammo))
-  serialised_data.trash = copy_inventory(spidertron.get_inventory(defines.inventory.spider_trash))
+  local spider_trunk = spidertron.get_inventory(defines.inventory.spider_trunk)  ---@cast spider_trunk -?
+  serialised_data.trunk = copy_inventory(spider_trunk)
+  local spider_ammo = spidertron.get_inventory(defines.inventory.spider_ammo)  ---@cast spider_ammo -?
+  serialised_data.ammo = copy_inventory(spider_ammo)
+  local spider_trash = spidertron.get_inventory(defines.inventory.spider_trash)  ---@cast spider_trash -?
+  serialised_data.trash = copy_inventory(spider_trash)
 
   if spidertron.burner then
     serialised_data.burner = serialise_burner(spidertron.burner)
@@ -178,7 +216,10 @@ function spidertron_lib.serialise_spidertron(spidertron)
   local grid_contents = {}
   if spidertron.grid then
     for _, equipment in pairs(spidertron.grid.equipment) do
-      local equipment_data = {name=equipment.name, position=equipment.position, energy=equipment.energy, shield=equipment.shield}
+      local equipment_data = {name=equipment.name, quality=equipment.quality.name, position=equipment.position, energy=equipment.energy, shield=equipment.shield, to_be_removed=equipment.to_be_removed}
+      if equipment.name == "equipment-ghost" then
+        equipment_data.ghost_name = equipment.ghost_name
+      end
       if equipment.burner then  -- e.g. BurnerGenerator mod
         equipment_data.burner = serialise_burner(equipment.burner)
       end
@@ -187,40 +228,39 @@ function spidertron_lib.serialise_spidertron(spidertron)
   end
   serialised_data.equipment = grid_contents
 
-  -- Logistic request slots
-  local logistic_slots = {}
-  local request_slot_count = safe_entity_get(spidertron, "request_slot_count") or 0
-  if request_slot_count > 0 and safe_entity_get(spidertron, "get_vehicle_logistic_slot") then
-    for i = 1, request_slot_count do
-      logistic_slots[i] = safe_entity_call(spidertron, "get_vehicle_logistic_slot", i)
+  local logistic_point = spidertron.get_logistic_point(defines.logistic_member_index.character_requester)  ---@cast logistic_point LuaLogisticPoint
+  if logistic_point then
+    serialised_data.logistics_enabled = logistic_point.enabled
+    serialised_data.logistics_trash_not_requested = logistic_point.trash_not_requested
+
+    local sections = {}
+    for i = 1, 100 do
+      local section = logistic_point.get_section(i)
+      if not section then break end
+      local seralised_section = {}
+      seralised_section.active = section.active
+      seralised_section.multiplier = section.multiplier
+      if section.group ~= "" then
+        seralised_section.group = section.group
+      else
+        seralised_section.filters = section.filters
+      end
+      sections[i] = seralised_section
     end
+    serialised_data.logistic_sections = sections
   end
-  serialised_data.logistic_slots = logistic_slots
 
   -- Find all connected remotes in player inventories or in radius 30 around all players
-  local connected_remotes = {}
-  --for _, entity in pairs(surface.find_entities_filtered{type=types}) do
-  for _, found_player in pairs(game.players) do
-    get_remotes(found_player.get_inventory(defines.inventory.character_main), spidertron, connected_remotes)  -- Adds all remotes connected to spidertron to connected_remotes
-    get_remotes(found_player.get_inventory(defines.inventory.character_trash), spidertron, connected_remotes)
-    get_remotes(found_player.get_inventory(defines.inventory.god_main), spidertron, connected_remotes)
-    get_remotes(found_player.get_inventory(defines.inventory.editor_main), spidertron, connected_remotes)
-    get_remotes({found_player.cursor_stack}, spidertron, connected_remotes)
-
-    -- Also check in a radius around the player
-    if found_player.character then
-      local character = found_player.character
-      -- Check train cars, chests, cars, player inventories, and logistics chests.
-      local types = {"cargo-wagon", "container", "car", "logistic-container", "spider-vehicle"}
-      for _, entity in pairs(character.surface.find_entities_filtered{position=character.position, radius=30, type=types}) do
-        if entity.get_item_count("spidertron-remote") > 0 then
-          log("Found remotes in entity " .. entity.name .. ". Checking inventory " .. MAP_ENTITY_INVENTORY[entity.type])
-          get_remotes(entity.get_inventory(MAP_ENTITY_INVENTORY[entity.type]), spidertron, connected_remotes)  -- Adds all remotes connected to spidertron to connected_remotes
-        end
+  local players_selecting_spidertron = {}
+  for index, player in pairs(game.players) do
+    local spidertron_remote_selection = player.spidertron_remote_selection or {}
+    for _, spidertron_selection in pairs(spidertron_remote_selection) do
+      if spidertron_selection == spidertron then
+        players_selecting_spidertron[index] = true
       end
     end
   end
-  serialised_data.connected_remotes = connected_remotes
+  serialised_data.players_selecting_spidertron = players_selecting_spidertron
 
   -- Store which players had this spidertron's GUI open
   local players_with_gui_open = {}
@@ -234,7 +274,9 @@ function spidertron_lib.serialise_spidertron(spidertron)
   return serialised_data
 end
 
-
+---@param spidertron LuaEntity
+---@param serialised_data SerialisedSpidertron
+---@param transfer_player_state boolean?
 function spidertron_lib.deserialise_spidertron(spidertron, serialised_data, transfer_player_state)
   -- Copy all data in serialised_data into spidertron
   -- Set `serialised_data` fields to `nil` to prevent that attribute of `spidertron` being overwritten
@@ -242,21 +284,23 @@ function spidertron_lib.deserialise_spidertron(spidertron, serialised_data, tran
   -- transfer_player_state keeps driver/passenger in spidertron, player.opened and player.walking_state intact
   -- and should be used when the mod is serialising and deserialising the spidertron on the same tick
 
+  local data_version = serialised_data.version or 1
+
   -- Copy across generic attributes
   for _, attribute in pairs{"force",
                             "torso_orientation",
                             "last_user",
                             "color",
                             "entity_label",
-                            "vehicle_logistic_requests_enabled",
                             "enable_logistics_while_moving",
+                            "request_from_buffers",
                             "vehicle_automatic_targeting_parameters",
                             "follow_target",
                             "follow_offset",
                             "selected_gun_index"} do
     local value = serialised_data[attribute]
     if value ~= nil then
-      safe_entity_set(spidertron, attribute, value)
+      spidertron[attribute] = value
     end
   end
 
@@ -276,11 +320,7 @@ function spidertron_lib.deserialise_spidertron(spidertron, serialised_data, tran
   -- Copy across health
   local health_ratio = serialised_data.health
   if health_ratio then
-    local prototype = safe_entity_get(spidertron, "prototype")
-    local max_health = safe_entity_get(prototype, "max_health")
-    if max_health and type(max_health) == "number" and max_health > 0 then
-      spidertron.health = health_ratio * max_health
-    end
+    spidertron.health = health_ratio * spidertron.max_health
   end
 
   -- Copy across trunk
@@ -309,15 +349,35 @@ function spidertron_lib.deserialise_spidertron(spidertron, serialised_data, tran
 
   -- Copy across fuel, remaining_burning_fuel, etc (for modded spidertrons that use fuel)
   local burner = serialised_data.burner
-  if burner then
+  if burner and spidertron.burner then
     deserialise_burner(spidertron.burner, burner)
   end
 
-  -- Copy across logistic request slots
-  local logistic_slots = serialised_data.logistic_slots
-  if logistic_slots then
-    for i, slot in pairs(logistic_slots) do
-      safe_entity_call(spidertron, "set_vehicle_logistic_slot", i, slot)
+  local logistic_point = spidertron.get_logistic_point(defines.logistic_member_index.character_requester)  ---@cast logistic_point LuaLogisticPoint
+  if logistic_point then
+    logistic_point.enabled = serialised_data.logistics_enabled
+    logistic_point.trash_not_requested = serialised_data.logistics_trash_not_requested
+    for i, section in pairs(serialised_data.logistic_sections) do
+      local logistic_section
+      if i == 1 then
+        -- First section is always present
+        logistic_section = logistic_point.get_section(1)
+        if section.group then
+          logistic_section.group = section.group
+        else
+          logistic_section.filters = section.filters
+        end
+      else
+        -- New sections beyond 1st
+        if section.group then
+          logistic_section = logistic_point.add_section(section.group)
+        else
+          logistic_section = logistic_point.add_section()
+          logistic_section.filters = section.filters
+        end
+      end
+      logistic_section.active = section.active
+      logistic_section.multiplier = section.multiplier
     end
   end
 
@@ -326,46 +386,53 @@ function spidertron_lib.deserialise_spidertron(spidertron, serialised_data, tran
   local spidertron_grid = spidertron.grid
   if previous_grid_contents then
     for _, equipment in pairs(previous_grid_contents) do
-      if spidertron_grid then
-        local placed_equipment = spidertron_grid.put( {name=equipment.name, position=equipment.position} )
-        if placed_equipment then
-          if equipment.energy then placed_equipment.energy = equipment.energy end
-          if equipment.shield and equipment.shield > 0 then placed_equipment.shield = equipment.shield end
-          if equipment.burner and equipment.burner.serialised_burner then
-            -- Extra check for .serialised_burner to differentiate with legacy version below
-            deserialise_burner(placed_equipment.burner, equipment.burner)
-          elseif equipment.burner then
-            -- Legacy alternative
-            copy_inventory(equipment.burner_inventory, placed_equipment.burner.inventory)
-            copy_inventory(equipment.burner_burnt_result_inventory, placed_equipment.burner.burnt_result_inventory)
-            if equipment.heat then placed_equipment.burner.heat = equipment.burner_heat end
-            placed_equipment.burner.currently_burning = equipment.burner_currently_burning
-            placed_equipment.burner.remaining_burning_fuel = equipment.burner_remaining_burning_fuel
+      if prototypes.equipment[equipment.name] then
+        -- Only attempt deserialization if equipment prototype still exists
+        if spidertron_grid then
+          local placed_equipment
+          if equipment.name == "equipment-ghost" then
+            if equipment.ghost_name then  -- Legacy check
+              placed_equipment = spidertron_grid.put( {name=equipment.ghost_name, quality=equipment.quality, position=equipment.position, ghost=true} )
+            end
+          else
+            placed_equipment = spidertron_grid.put( {name=equipment.name, quality=equipment.quality, position=equipment.position} )
           end
-        else  -- No space in the grid because we have moved to a smaller grid
-          spidertron.surface.spill_item_stack(spidertron.position, {name=equipment.name})
+          if placed_equipment then
+            if equipment.energy then placed_equipment.energy = equipment.energy end
+            if equipment.shield and equipment.shield > 0 then placed_equipment.shield = equipment.shield end
+            if equipment.to_be_removed then spidertron_grid.order_removal(placed_equipment) end
+            if equipment.burner and placed_equipment.burner then
+              deserialise_burner(placed_equipment.burner, equipment.burner)
+            end
+          else  -- No space in the grid because we have moved to a smaller grid
+            spidertron.surface.spill_item_stack{position=spidertron.position, stack={name=equipment.name, quality=equipment.quality}}
+          end
+        else   -- No space in the grid because the grid has gone entirely
+          spidertron.surface.spill_item_stack{position=spidertron.position, stack={name=equipment.name, quality=equipment.quality}}
         end
-      else   -- No space in the grid because the grid has gone entirely
-        spidertron.surface.spill_item_stack(spidertron.position, {name=equipment.name})
       end
     end
   end
 
   -- Reconnect remotes
-  local connected_remotes = serialised_data.connected_remotes
-  if connected_remotes then
-    for _, remote in pairs(connected_remotes) do
-      if remote and remote.valid_for_read and remote.prototype.type == "spidertron-remote" then
-        remote.connected_entity = spidertron
-      end
+  local players_selecting_spidertron = serialised_data.players_selecting_spidertron or {}
+  for player_index, _ in pairs(players_selecting_spidertron) do
+    local player = game.get_player(player_index)
+    if player and player.connected then
+      local spidertrons_selected = player.spidertron_remote_selection or {}
+      table.insert(spidertrons_selected, spidertron)
+      player.spidertron_remote_selection = spidertrons_selected
     end
   end
 
   if transfer_player_state then
     -- Copy across driving state
-    local driver = serialised_data.driver or serialised_data.player_occupied  -- Legacy
+    local driver = serialised_data.driver
     -- driver is a character, not player
     if driver and driver.valid then
+      if driver.vehicle then  -- set_driver can fail if driver is already in a vehicle and can't exit it
+        driver.vehicle.set_driver(nil)
+      end
       spidertron.set_driver(driver)
     end
     -- `spidertron` could be invalid here because `.set_driver` raises an event that other mods can react to
@@ -375,6 +442,9 @@ function spidertron_lib.deserialise_spidertron(spidertron, serialised_data, tran
 
     local passenger = serialised_data.passenger
     if passenger and passenger.valid then
+      if passenger.vehicle then  -- set_driver can fail if driver is already in a vehicle and can't exit it
+        passenger.vehicle.set_driver(nil)
+      end
       spidertron.set_passenger(passenger)
     end
     -- Same check again here
@@ -383,7 +453,8 @@ function spidertron_lib.deserialise_spidertron(spidertron, serialised_data, tran
     end
 
     local walking_state = serialised_data.walking_state
-    if driver and driver.valid and walking_state then
+    if driver and driver.valid and driver.object_name == "LuaEntity" and walking_state then
+      -- driver is a LuaPlayer in simulations
       driver.player.walking_state = walking_state
     end
 
@@ -397,7 +468,6 @@ function spidertron_lib.deserialise_spidertron(spidertron, serialised_data, tran
       end
     end
   end
-
 end
 
 return spidertron_lib
